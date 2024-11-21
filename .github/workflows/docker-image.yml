@@ -7,17 +7,26 @@ on:
       - main
 
 jobs:
+  # Set up QEMU for multi-platform builds
+  setup-qemu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: all
+
   # Build and Push the Base Image
   build-and-push-base:
-    if: github.ref_name == 'base' || github.ref_name == 'main'
+    needs: setup-qemu
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          ref: base  # Always use the 'base' branch for the base image
+          ref: base  # Ensure the 'base' branch is used
 
-      - name: Set up Docker
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
       - name: Log in to Docker Hub
@@ -53,7 +62,7 @@ jobs:
 
   # Build and Push the Main Image
   build-and-push-main:
-    needs: build-and-push-base
+    needs: [setup-qemu, build-and-push-base]
     if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     steps:
@@ -62,7 +71,7 @@ jobs:
         with:
           ref: main  # Use the 'main' branch for the main image
 
-      - name: Set up Docker
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
       - name: Log in to Docker Hub
