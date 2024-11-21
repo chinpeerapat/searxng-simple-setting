@@ -7,8 +7,8 @@ on:
       - main
 
 jobs:
-  # Build the Base Image
-  build-base:
+  # Build and Push the Base Image
+  build-and-push-base:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -17,26 +17,26 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
-      - name: Build Base Docker Image
-        run: |
-          docker build -t chpeerapat/searxng-base:latest -f Dockerfile.base .
-        env:
-          DOCKER_BUILDKIT: 1
-
-      # Push base image only if on the "base" branch
-      - name: Push Base Docker Image
-        if: github.ref_name == 'base'
+      - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Base Docker Image
         run: |
-          docker tag chpeerapat/searxng-simple-setting/searxng:base chpeerapat/searxng-simple-setting/searxng:base
-          docker push chpeerapat/searxng-simple-setting/searxng:base
+          # Build the base image
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --push \
+            -t chpeerapat/searxng:base \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
 
   # Build and Push the Main Image (depends on the Base Image)
   build-and-push-main:
-    needs: build-base
+    needs: build-and-push-base
     if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     steps:
@@ -61,13 +61,13 @@ jobs:
 
       - name: Build and Push Main Docker Image
         run: |
-          # Build main image using the base image
+          # Build the main image using the base image
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
-            --build-arg BASE_IMAGE=chpeerapat/searxng-simple-setting/searxng:base \
+            --build-arg BASE_IMAGE=chpeerapat/searxng:base \
             --push \
-            -t chpeerapat/searxng-simple-setting/searxng:main \
-            -t ghcr.io/chinpeerapat/searxng-simple-setting/searxng:main \
+            -t chpeerapat/searxng:main \
+            -t ghcr.io/chinpeerapat/searxng-simple-setting:main \
             .
         env:
           DOCKER_BUILDKIT: 1
